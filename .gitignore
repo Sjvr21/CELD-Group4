@@ -1,0 +1,20 @@
+# Local databases
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+
+# Secrets
+.env
+.env.*
+CELD_Test_Credentials_PRIVATE.txt
+
+# Build outputs
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+
+# Test results
+TestResults/
+*.trx

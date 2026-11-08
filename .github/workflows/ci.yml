@@ -1,0 +1,54 @@
+name: CELD CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  build-test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Restore and build server
+        run: dotnet build server/Celd.Api/Celd.Api.csproj --configuration Release
+      - name: Run API / relational integration tests with TRX evidence
+        run: dotnet test tests/Celd.Api.Tests/Celd.Api.Tests.csproj --configuration Release --logger 'trx;LogFileName=celd-tests.trx' --results-directory TestResults
+      - name: Install client dependencies
+        working-directory: client
+        # Replace with `npm ci` and commit package-lock.json after first approved installation.
+        run: npm install --no-audit --no-fund
+      - name: Build TypeScript and React client
+        working-directory: client
+        run: npm run build
+      - name: Copy frontend to server for static serving
+        run: cp -a client/dist/. server/Celd.Api/wwwroot/
+      - name: Publish deployable server
+        run: dotnet publish server/Celd.Api/Celd.Api.csproj -c Release -o publish
+      - name: Record revision and environment
+        if: always()
+        run: |
+          mkdir -p artifacts
+          echo "revision=${GITHUB_SHA}" > artifacts/revision.txt
+          echo "runner=${RUNNER_OS} ${RUNNER_ARCH}" >> artifacts/revision.txt
+          dotnet --version >> artifacts/revision.txt
+          node --version >> artifacts/revision.txt
+      - name: Upload test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celd-test-evidence
+          path: |
+            TestResults/
+            artifacts/revision.txt
+      - name: Upload publish artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: celd-publish
+          path: publish/
